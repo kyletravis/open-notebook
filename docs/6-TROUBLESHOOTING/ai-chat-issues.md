@@ -220,10 +220,18 @@ Switch in: Settings → Models
 ### Solution 3: Increase Timeout
 ```bash
 # In .env:
-API_CLIENT_TIMEOUT=600  # 10 minutes
+API_CLIENT_TIMEOUT=600  # 10 minutes (backend, in seconds)
 
 # Restart:
 docker compose restart
+```
+
+The browser also has its own timeout. If chat fails in the UI with
+`timeout of 600000ms exceeded`, raise the frontend bound too. This is a build-time value
+(in milliseconds), so it requires rebuilding the frontend:
+```bash
+# In .env (keep >= API_CLIENT_TIMEOUT * 1000):
+NEXT_PUBLIC_API_TIMEOUT=900000  # 15 minutes
 ```
 
 ### Solution 4: Check System Load

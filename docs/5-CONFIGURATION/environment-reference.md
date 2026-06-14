@@ -10,7 +10,8 @@ Comprehensive list of all environment variables available in Open Notebook.
 |----------|-----------|---------|-------------|
 | `API_URL` | No | Auto-detected | URL where frontend reaches API (e.g., http://localhost:5055) |
 | `INTERNAL_API_URL` | No | http://localhost:5055 | Internal API URL for Next.js server-side proxying |
-| `API_CLIENT_TIMEOUT` | No | 300 | Client timeout in seconds (how long to wait for API response) |
+| `API_CLIENT_TIMEOUT` | No | 300 | Backend HTTP client timeout in **seconds** (how long to wait for an API response). Clamped to 30–3600s. Also governs the chat path's read timeout (default 600s there when unset). |
+| `NEXT_PUBLIC_API_TIMEOUT` | No | 600000 | Frontend (browser) request timeout in **milliseconds**. Build-time value (inlined into the frontend build; changing it requires a frontend rebuild). Set ≥ `API_CLIENT_TIMEOUT × 1000` so the browser doesn't abort before the backend read timeout fires. |
 | `OPEN_NOTEBOOK_PASSWORD` | No | None | Password to protect Open Notebook instance |
 | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | **Yes** | None | Secret string to encrypt credentials stored in database (any string works). **Required** for the credential system. Supports Docker secrets via `_FILE` suffix. |
 | `HOSTNAME` | No | `0.0.0.0` (in Docker) | Network interface for Next.js to bind to. Default `0.0.0.0` ensures accessibility from reverse proxies |
