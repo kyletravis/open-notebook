@@ -9,35 +9,55 @@ from typing import Any, Dict, List, Optional, Union
 import httpx
 from loguru import logger
 
+# Bounds for API_CLIENT_TIMEOUT (seconds): 30s minimum, 1 hour maximum.
+_MIN_API_CLIENT_TIMEOUT = 30.0
+_MAX_API_CLIENT_TIMEOUT = 3600.0
+
+
+def resolve_api_client_timeout(default: float = 300.0) -> float:
+    """Resolve the HTTP client timeout (in seconds) from the environment.
+
+    Reads the API_CLIENT_TIMEOUT environment variable, clamps it to a sane
+    range (30s - 3600s), and falls back to ``default`` when the variable is
+    unset or invalid. Long timeouts accommodate slow LLM operations
+    (transformations, insights, chat) on slower hardware (Ollama, LM Studio,
+    remote APIs).
+    """
+    timeout_str = os.getenv("API_CLIENT_TIMEOUT")
+    if timeout_str is None:
+        return default
+    try:
+        timeout_value = float(timeout_str)
+    except ValueError:
+        logger.error(
+            f"Invalid API_CLIENT_TIMEOUT value '{timeout_str}', using default {default}s"
+        )
+        return default
+
+    if timeout_value < _MIN_API_CLIENT_TIMEOUT:
+        logger.warning(
+            f"API_CLIENT_TIMEOUT={timeout_value}s is too low, using minimum of "
+            f"{_MIN_API_CLIENT_TIMEOUT}s"
+        )
+        return _MIN_API_CLIENT_TIMEOUT
+    if timeout_value > _MAX_API_CLIENT_TIMEOUT:
+        logger.warning(
+            f"API_CLIENT_TIMEOUT={timeout_value}s is too high, using maximum of "
+            f"{_MAX_API_CLIENT_TIMEOUT}s"
+        )
+        return _MAX_API_CLIENT_TIMEOUT
+    return timeout_value
+
 
 class APIClient:
     """Client for Open Notebook API."""
 
     def __init__(self, base_url: Optional[str] = None):
         self.base_url = base_url or os.getenv("API_BASE_URL", "http://127.0.0.1:5055")
-        # Timeout increased to 5 minutes (300s) to accommodate slow LLM operations
-        # (transformations, insights) on slower hardware (Ollama, LM Studio, remote APIs)
-        # Configurable via API_CLIENT_TIMEOUT environment variable (in seconds)
-        timeout_str = os.getenv("API_CLIENT_TIMEOUT", "300.0")
-        try:
-            timeout_value = float(timeout_str)
-            # Validate timeout is within reasonable bounds (30s - 3600s / 1 hour)
-            if timeout_value < 30:
-                logger.warning(
-                    f"API_CLIENT_TIMEOUT={timeout_value}s is too low, using minimum of 30s"
-                )
-                timeout_value = 30.0
-            elif timeout_value > 3600:
-                logger.warning(
-                    f"API_CLIENT_TIMEOUT={timeout_value}s is too high, using maximum of 3600s"
-                )
-                timeout_value = 3600.0
-            self.timeout = timeout_value
-        except ValueError:
-            logger.error(
-                f"Invalid API_CLIENT_TIMEOUT value '{timeout_str}', using default 300s"
-            )
-            self.timeout = 300.0
+        # Timeout defaults to 5 minutes (300s) to accommodate slow LLM operations
+        # (transformations, insights) on slower hardware (Ollama, LM Studio, remote APIs).
+        # Configurable via API_CLIENT_TIMEOUT environment variable (in seconds).
+        self.timeout = resolve_api_client_timeout(default=300.0)
 
         # Add authentication header if password is set
         self.headers = {}

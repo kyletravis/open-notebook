@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 from loguru import logger
 
+from api.client import resolve_api_client_timeout
+
 
 class ChatService:
     """Service for chat-related API operations"""
@@ -134,8 +136,12 @@ class ChatService:
             if model_override is not None:
                 data["model_override"] = model_override
 
-            # Short connect timeout (10s), long read timeout (10 min) for Ollama/local LLMs
-            timeout = httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0)
+            # Short connect timeout (10s), long read timeout for Ollama/local LLMs.
+            # Read timeout defaults to 10 min and is configurable via API_CLIENT_TIMEOUT.
+            read_timeout = resolve_api_client_timeout(default=600.0)
+            timeout = httpx.Timeout(
+                connect=10.0, read=read_timeout, write=30.0, pool=10.0
+            )
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(
                     f"{self.base_url}/api/chat/execute", json=data, headers=self.headers
