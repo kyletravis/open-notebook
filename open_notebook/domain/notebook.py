@@ -616,6 +616,27 @@ class Source(ObjectModel):
                 "Continuing with source deletion."
             )
 
+        # Delete associated surreal-commands jobs so the worker never picks up an
+        # orphaned job referencing this (now deleted) source and raises NotFoundError.
+        # source_id is stored as a string in the command's `args` (see SourceProcessingInput,
+        # EmbedSourceInput, etc.), so compare against the string form of the id.
+        try:
+            await repo_query(
+                "DELETE command WHERE args.source_id = $source_id",
+                {"source_id": str(self.id)},
+            )
+            if self.command:
+                await repo_query(
+                    "DELETE command WHERE id = $command_id",
+                    {"command_id": ensure_record_id(self.command)},
+                )
+            logger.debug(f"Deleted command jobs for source {self.id}")
+        except Exception as e:
+            logger.warning(
+                f"Failed to delete command jobs for source {self.id}: {e}. "
+                "Continuing with source deletion."
+            )
+
         # Call parent delete to remove database record
         return await super().delete()
 
